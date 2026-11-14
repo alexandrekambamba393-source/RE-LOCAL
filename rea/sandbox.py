@@ -16,7 +16,7 @@ from rea.subproc import run_tool
 
 @dataclass(frozen=True)
 class Sandbox:
-    name: str  # "bubblewrap" or "firejail"
+    name: str
     binary: str
 
     def wrap(self, argv: list[str], scratch_dir: Path | None = None) -> list[str]:

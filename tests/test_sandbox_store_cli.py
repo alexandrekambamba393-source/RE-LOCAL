@@ -53,7 +53,6 @@ class SandboxWrapTests(unittest.TestCase):
         self.assertIsNone(sandbox_mod.detect(which=lambda name: None))
 
     def test_detect_ignores_a_binary_that_does_not_run(self):
-        # A path on PATH is not enough: the probe must succeed.
         self.assertIsNone(sandbox_mod.detect(which=lambda name: f"/nonexistent/{name}"))
 
     def test_describe_states(self):
@@ -69,7 +68,6 @@ class RunnerSandboxTests(unittest.TestCase):
             runner = Runner(timeout=5, max_bytes=1000, sandbox=Sandbox("firejail", "/nonexistent/firejail"),
                             scratch_root=scratch_root)
             res = runner.run(["/bin/true"])
-            # The error names the wrapper, which proves the command went through the sandbox.
             self.assertFalse(res.ok)
             self.assertIn("/nonexistent/firejail is not installed", res.error)
             self.assertTrue(any(scratch_root.iterdir()))

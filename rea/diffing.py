@@ -20,7 +20,7 @@ from rea.errors import ReaError
 from rea.evidence import EvidenceBook
 from rea.runner import Runner
 
-MAX_LISTED = 200  # per change category; the rest is counted, not listed
+MAX_LISTED = 200
 
 
 def _sha256(path: Path) -> str:

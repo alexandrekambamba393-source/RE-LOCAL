@@ -172,8 +172,6 @@ def _create(
     return rec
 
 
-# ---------- investigate ----------
-
 def investigate(
     target: str,
     question: str,
@@ -233,8 +231,6 @@ def investigate(
     )
 
 
-# ---------- audit ----------
-
 def audit(
     target: str,
     home: Path | None = None,
@@ -293,8 +289,6 @@ def audit(
     )
 
 
-# ---------- diff ----------
-
 def diff(
     old: str,
     new: str,
@@ -334,8 +328,6 @@ def diff(
         export_graph=export_graph,
     )
 
-
-# ---------- rendering ----------
 
 def render_report(rec: InvestigationRecord) -> str:
     out = [
@@ -397,8 +389,6 @@ def render_report(rec: InvestigationRecord) -> str:
     ]
     return "\n".join(out)
 
-
-# ---------- history ----------
 
 def list_investigations(home: Path | None = None, limit: int = 20) -> list[dict]:
     home = home or paths.rea_home()

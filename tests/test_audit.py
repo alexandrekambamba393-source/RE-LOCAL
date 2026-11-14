@@ -76,7 +76,6 @@ class JsAuditTests(unittest.TestCase):
         self.assertEqual(rules["JS-007"][0]["severity"], "MEDIUM")
 
     def test_literal_eval_and_exec_are_not_flagged(self):
-        # eval("1 + 1"), cp.exec("ls -la") and re.exec(text) are literal or method calls, not risky.
         sources = [f["source"] for f in self.rec.findings if f["rule_id"] in ("JS-008", "JS-009")]
         self.assertFalse(any(s.startswith("main.js:4") for s in sources))
         self.assertFalse(any(s.startswith("worker.js:2") for s in sources))
@@ -163,7 +162,6 @@ class NativeAuditTests(unittest.TestCase):
             self.assertTrue(set(f.refs) <= refs)
 
     def test_parse_elf_protections_on_canned_text(self):
-        # GNU_RELRO without BIND_NOW is partial RELRO.
         p = native_tools.parse_elf_protections(
             "  Type: DYN (Position-Independent Executable file)",
             "GNU_STACK ... RW\n GNU_RELRO ... R",
@@ -264,7 +262,6 @@ class RedactionInEvidenceTests(unittest.TestCase):
 
 class ApkAuditApiTests(unittest.TestCase):
     def test_audit_works_without_an_allowlist_when_none_is_configured(self):
-        # With no folders configured, the local CLI may audit any readable path; MCP requires an allowlist.
         with tempfile.TemporaryDirectory() as d:
             app = make_risky_electron_app(Path(d) / "app")
             rec = audit(str(app), home=Path(d) / "home")

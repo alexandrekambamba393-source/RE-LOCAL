@@ -130,7 +130,7 @@ class SetupTests(unittest.TestCase):
             self.assertEqual(run_setup(home, assume_yes=True, allow=[str(allowed)], out=quiet), 0)
             config = json.loads((home / "config.json").read_text(encoding="utf-8"))
             self.assertIn(str(allowed.resolve()), config["allowed_roots"])
-            self.assertEqual(run_setup(home, assume_yes=True, out=quiet), 0)  # rerun keeps the allowed folder
+            self.assertEqual(run_setup(home, assume_yes=True, out=quiet), 0)
             config = json.loads((home / "config.json").read_text(encoding="utf-8"))
             self.assertIn(str(allowed.resolve()), config["allowed_roots"])
             self.assertTrue(any((home / "logs").glob("setup-*.log")))
@@ -162,7 +162,6 @@ class McpTests(unittest.TestCase):
             self.assertIsNone(mcp_server.handle({"jsonrpc": "2.0", "method": "notifications/initialized"}, home=home))
             tools = mcp_server.handle({"jsonrpc": "2.0", "id": 2, "method": "tools/list"}, home=home)["result"]["tools"]
             names = {t["name"] for t in tools}
-            # The original four tools must still exist; v0.2 adds rea_audit and rea_diff.
             self.assertTrue({"rea_doctor", "rea_investigate", "rea_list_investigations", "rea_get_report"} <= names)
             self.assertTrue({"rea_audit", "rea_diff"} <= names)
 
@@ -192,7 +191,7 @@ class McpTests(unittest.TestCase):
             lines = stdout.getvalue().splitlines()
             self.assertEqual(len(lines), 2)
             for line in lines:
-                json.loads(line)  # every line must be valid JSON
+                json.loads(line)
 
 
 if __name__ == "__main__":

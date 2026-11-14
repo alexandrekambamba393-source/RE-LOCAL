@@ -53,8 +53,6 @@ def redact(text: str) -> str:
     return text
 
 
-# ---------- JavaScript / Electron ----------
-
 def _is_preload(path: Path, text: str) -> bool:
     return "preload" in path.name.lower() or "contextbridge" in text.lower()
 
@@ -129,8 +127,6 @@ def audit_js(book: EvidenceBook, root: Path, limits: dict) -> list[Finding]:
     return findings
 
 
-# ---------- native ELF / PE ----------
-
 def audit_native(book: EvidenceBook, path: Path, kind: str, tools: dict[str, str | None], runner: Runner) -> list[Finding]:
     target = str(path)
     findings: list[Finding] = []
@@ -197,8 +193,6 @@ def _yn(value: bool | None) -> str:
         return "unknown"
     return "yes" if value else "no"
 
-
-# ---------- Android APK ----------
 
 def audit_apk(book: EvidenceBook, path: Path) -> list[Finding]:
     target = str(path)

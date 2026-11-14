@@ -16,7 +16,6 @@ from rea.runner import Runner
 
 BINARY_KINDS = {"elf-binary", "pe-binary", "macho-binary", "cafebabe-object"}
 JS_KINDS = {"javascript-app", "electron-app"}
-# Evidence kinds that count as a direct hit for the question's terms.
 TERM_KINDS = {"string-hit", "symbol-hit", "js-term-hit", "apk-entry-hit", "managed-runtime-marker", "bin-tool-hit"}
 
 MACHO_MAGICS = {b"\xfe\xed\xfa\xce", b"\xfe\xed\xfa\xcf", b"\xce\xfa\xed\xfe", b"\xcf\xfa\xed\xfe"}
@@ -175,7 +174,6 @@ def collect_binary(
         if sections:
             book.add("sections", target, "section-list", f"{len(sections)} sections; first ones: {', '.join(sections[:12])}")
 
-    # Optional radare2 / rizin enrichment: imports, exports, sections in JSON form.
     bin_tool = next(((n, tools[n]) for n in ("rabin2", "rz-bin") if tools.get(n)), None)
     if bin_tool:
         extract = native_tools.run_bin_tool_extract(runner, bin_tool[0], bin_tool[1], target)

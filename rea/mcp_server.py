@@ -154,7 +154,7 @@ def call_tool(name: str, args: dict, home: Path | None = None) -> dict:
 def handle(message: dict, home: Path | None = None) -> dict | None:
     """Handle one JSON-RPC message. Returns a reply, or None for notifications."""
     if "id" not in message:
-        return None  # notifications such as notifications/initialized need no reply
+        return None
     msg_id = message["id"]
     method = message.get("method", "")
     try:

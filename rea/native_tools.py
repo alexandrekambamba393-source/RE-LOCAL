@@ -21,8 +21,6 @@ DANGEROUS_FUNCS = {
 }
 
 
-# ---------- ELF ----------
-
 def parse_elf_protections(header: str, program: str, dynamic: str, dynsyms: str) -> dict:
     pie = "Position-Independent Executable" in header
     nx: bool | None = None
@@ -52,8 +50,6 @@ def run_elf_protections(runner: Runner, readelf: str, path: str) -> dict:
     return parse_elf_protections(header.stdout, program.stdout, dynamic.stdout, dynsyms.stdout)
 
 
-# ---------- PE ----------
-
 def parse_pe_protections(objdump_headers: str) -> dict:
     return {
         "format": "pe",
@@ -68,8 +64,6 @@ def run_pe_protections(runner: Runner, objdump: str, path: str) -> dict:
         return {"format": "pe", "error": res.error}
     return parse_pe_protections(res.stdout)
 
-
-# ---------- imports ----------
 
 def parse_nm_undefined(text: str) -> set[str]:
     names: set[str] = set()
@@ -89,8 +83,6 @@ def run_nm_undefined(runner: Runner, nm: str, path: str, dynamic: bool) -> set[s
 def dangerous_imports(imports: set[str]) -> list[tuple[str, str]]:
     return [(name, DANGEROUS_FUNCS[name]) for name in sorted(imports) if name in DANGEROUS_FUNCS]
 
-
-# ---------- radare2 / rizin (JSON) ----------
 
 def parse_bin_json(text: str, key: str) -> list[str]:
     """Pull `name` fields from a rabin2/rz-bin JSON list such as {"imports":[{"name":"puts"}]}."""

@@ -12,7 +12,7 @@ from rea.subproc import run_tool
 class ToolSpec:
     name: str
     purpose: str
-    implemented: bool  # False means detected only; REA does not run it yet
+    implemented: bool
     version_arg: str | None = "--version"  # None: never run the tool just to read its version
 
 

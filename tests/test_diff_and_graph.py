@@ -164,7 +164,6 @@ class GraphTests(unittest.TestCase):
         self.assertNotIn("<b>z", page)
 
     def test_evidence_about_the_target_itself_attaches_to_target(self):
-        # E2's source is the target folder, so it has no module node and hangs directly off the target.
         self.assertIn("T --> E2", build_mermaid(self._data()))
 
     def test_write_graph_creates_both_files(self):

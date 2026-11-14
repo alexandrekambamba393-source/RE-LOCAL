@@ -36,8 +36,6 @@ def make_js_app(root: Path) -> Path:
     return root
 
 
-# ---------- Android binary XML ----------
-
 def _string_pool_chunk(strings: list[str]) -> bytes:
     body = bytearray()
     offsets: list[int] = []
@@ -88,8 +86,6 @@ def build_axml(elements: list[tuple[str, list[tuple[str, str, object]]]]) -> byt
     return struct.pack("<HHI", 0x0003, 8, total) + pool + body
 
 
-# ---------- dex ----------
-
 def _uleb(n: int) -> bytes:
     out = bytearray()
     while True:
@@ -121,8 +117,6 @@ def build_dex(strings: list[str]) -> bytes:
     return bytes(header) + ids + bytes(data)
 
 
-# ---------- APK ----------
-
 def build_apk(
     path: Path,
     manifest: list[tuple[str, list[tuple[str, str, object]]]],
@@ -133,8 +127,6 @@ def build_apk(
         zf.writestr("classes.dex", build_dex(dex_strings))
     return path
 
-
-# ---------- fake tool runner ----------
 
 class FakeRunner:
     """Stands in for rea.runner.Runner. Answers from a dict keyed by (tool basename, first flag)."""

@@ -22,7 +22,7 @@ from rea.tools_probe import ToolStatus, probe_tools
 
 @dataclass(frozen=True)
 class PlanStep:
-    action: str  # "create_dir" or "write_file"
+    action: str
     target: str
     note: str
 
@@ -84,7 +84,7 @@ def _apply(
     }
     paths.mcp_snippet_file(home).write_text(json.dumps(snippet, indent=2) + "\n", encoding="utf-8")
     with Store(paths.db_file(home)):
-        pass  # creates the schema if it is missing
+        pass
 
     log = [f"REA setup run {log_path.stem}", "", "Plan applied:"]
     log += [f"  [{s.action}] {s.target}  -- {s.note}" for s in steps]
