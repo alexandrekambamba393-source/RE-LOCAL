@@ -33,7 +33,7 @@ def build_parser() -> argparse.ArgumentParser:
     s = sub.add_parser("setup", help="Check tools and prepare local state. Shows a plan and asks first.")
     s.add_argument("--yes", action="store_true", help="apply without asking")
     s.add_argument("--dry-run", action="store_true", help="show the plan and change nothing")
-    s.add_argument("--allow", action="append", default=[], metavar="DIR", help="folder REA may investigate (repeatable)")
+    s.add_argument("--allow", action="append", default=[], metavar="DIR", help="folder RE LOCAL may investigate (repeatable)")
 
     sub.add_parser("doctor", help="Show tools, sandbox, allowed folders, and history status")
 
@@ -74,7 +74,7 @@ def build_parser() -> argparse.ArgumentParser:
 
 
 def _print_doctor(info: dict) -> None:
-    print(f"REA home:        {info['home']}")
+    print(f"RE LOCAL home:        {info['home']}")
     print(f"Config:          {'present' if info['config_present'] else 'missing (run `rea setup`)'}")
     print(f"Runs in history: {info['investigations']}")
     roots = info["allowed_roots"]

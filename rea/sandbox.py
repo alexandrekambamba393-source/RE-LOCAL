@@ -1,6 +1,6 @@
 """Optional sandbox for external analysis tools (bubblewrap or firejail).
 
-Sandboxing is opt-in (`--sandbox`). When requested but unavailable, REA still runs the static
+Sandboxing is opt-in (`--sandbox`). When requested but unavailable, RE LOCAL still runs the static
 tools (the target is never executed either way) and records that the sandbox was not active.
 """
 

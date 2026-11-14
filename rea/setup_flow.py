@@ -42,7 +42,7 @@ def _plan(home: Path, log_path: Path) -> list[PlanStep]:
     steps: list[PlanStep] = []
     for folder in (home, paths.logs_dir(home), paths.investigations_dir(home)):
         if not folder.is_dir():
-            steps.append(PlanStep("create_dir", str(folder), "REA state folder"))
+            steps.append(PlanStep("create_dir", str(folder), "RE LOCAL state folder"))
     steps.append(
         PlanStep(
             "write_file",
@@ -54,7 +54,7 @@ def _plan(home: Path, log_path: Path) -> list[PlanStep]:
         PlanStep(
             "write_file",
             str(paths.mcp_snippet_file(home)),
-            "example MCP client entry. You copy it into your client yourself; REA edits no client config",
+            "example MCP client entry. You copy it into your client yourself; RE LOCAL edits no client config",
         )
     )
     steps.append(PlanStep("write_file", str(log_path), "record of this setup run"))
@@ -86,7 +86,7 @@ def _apply(
     with Store(paths.db_file(home)):
         pass
 
-    log = [f"REA setup run {log_path.stem}", "", "Plan applied:"]
+    log = [f"RE LOCAL setup run {log_path.stem}", "", "Plan applied:"]
     log += [f"  [{s.action}] {s.target}  -- {s.note}" for s in steps]
     log += ["", "Tool check:"]
     log += [f"  {'found' if t.found else 'missing'} {t.name}: {t.path or '-'} {t.version or ''}".rstrip() for t in statuses]
@@ -117,7 +117,7 @@ def run_setup(
     tools = {s.name: {"found": s.found, "path": s.path, "version": s.version} for s in statuses}
     config = build_config(tools, roots, existing.get("limits", dict(DEFAULT_LIMITS)))
 
-    out("REA setup")
+    out("RE LOCAL setup")
     out(f"Home: {home}")
     out("")
     out("Tool check (optional tools only add capabilities; nothing is installed):")

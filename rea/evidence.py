@@ -1,4 +1,4 @@
-"""Evidence records. Every claim REA reports must point at something it actually observed."""
+"""Evidence records. Every claim RE LOCAL reports must point at something it actually observed."""
 
 from __future__ import annotations
 

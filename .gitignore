@@ -9,7 +9,7 @@ dist/
 .venv/
 venv/
 
-# REA runtime state (never commit investigation data or history)
+# RE LOCAL runtime state (never commit investigation data or history)
 .rea/
 investigations/
 history.sqlite3

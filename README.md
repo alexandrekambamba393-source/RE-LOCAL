@@ -1,12 +1,12 @@
-# REA (local)
+# RE LOCAL (local)
 
 A local reverse-engineering helper with a terminal CLI and an MCP server for agents. You ask a question about
-an app or binary, or ask for a security audit or a comparison of two versions, and REA returns a cited report:
+an app or binary, or ask for a security audit or a comparison of two versions, and RE LOCAL returns a cited report:
 the evidence it found, where it came from, and what it could not check. Everything runs on your machine.
-REA makes no network calls and never runs the target.
+RE LOCAL makes no network calls and never runs the target.
 
-REA gathers evidence. The explanation of how a feature works is written by the agent (or you) after reading
-that evidence. REA does not run a language model.
+RE LOCAL gathers evidence. The explanation of how a feature works is written by the agent (or you) after reading
+that evidence. RE LOCAL does not run a language model.
 
 ## Commands
 
@@ -29,7 +29,7 @@ Common flags on `investigate`, `audit`, and `diff`: `--export-graph` and `--sand
 Requirements: Python 3.10 or newer. Optional tools add capabilities (see below). Nothing is downloaded.
 
 ```bash
-cd rea-local
+cd "RE LOCAL"
 python3 -m rea --help            # runs straight from the folder, no install needed
 # or, if pip is allowed on your machine:
 python3 -m venv .venv && . .venv/bin/activate && pip install -e .
@@ -39,19 +39,19 @@ python3 -m venv .venv && . .venv/bin/activate && pip install -e .
 
 ```bash
 rea setup --dry-run                      # show the plan; changes nothing
-rea setup --allow ~/work/app-under-test  # folder(s) REA may investigate
+rea setup --allow ~/work/app-under-test  # folder(s) RE LOCAL may investigate
 rea setup                                # shows the plan and asks "Apply this plan? [y/N]"
 rea setup --yes                          # apply without asking (scripts)
 rea doctor
 ```
 
-Setup records which optional tools it found, writes `config.json` under REA home (`~/.rea` by default,
+Setup records which optional tools it found, writes `config.json` under RE LOCAL home (`~/.rea` by default,
 or `REA_HOME`), writes an example MCP client entry, and logs the run. It never edits your agent client's
 configuration. Rerunning keeps your allowed folders and limits.
 
 ## Optional tools
 
-REA uses whatever is installed and says in each report what it could not run.
+RE LOCAL uses whatever is installed and says in each report what it could not run.
 
 | Tool | Used for | Status |
 |---|---|---|
@@ -137,12 +137,12 @@ Existing runs can be exported later: `rea show <id> --export-graph`.
 rea investigate ./unknown-tool -q "what does it read?" --sandbox
 ```
 
-When `bwrap` or `firejail` is installed and actually runs a trivial command, REA wraps its external tools:
+When `bwrap` or `firejail` is installed and actually runs a trivial command, RE LOCAL wraps its external tools:
 - read-only filesystem (`--ro-bind /` for Bubblewrap)
 - no network (`--unshare-net`, or `--net=none` for firejail)
 - one private scratch folder, removed after the run
 
-If neither works, REA still runs its static tools (the target is never executed either way). The report
+If neither works, RE LOCAL still runs its static tools (the target is never executed either way). The report
 states in Limitations that the sandbox was unavailable. `rea doctor` shows which sandbox is active.
 
 ## Use from an agent (MCP)
@@ -163,7 +163,7 @@ Every tool that reads a target is refused until you allow a folder with `rea set
 
 ## Safety model
 
-- **Local only.** REA opens no network sockets. Its external tools run locally.
+- **Local only.** RE LOCAL opens no network sockets. Its external tools run locally.
 - **No execution of targets.** Binaries are parsed by read-only tools. Scripts are read as text and never run.
 - **No shell.** Tools run from fixed argument lists with absolute paths, so file names cannot inject flags or commands.
 - **Bounded work.** Each tool call has a timeout, output is capped, and oversized files are skipped and counted.

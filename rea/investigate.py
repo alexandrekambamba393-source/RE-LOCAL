@@ -183,7 +183,7 @@ def investigate(
     home = home or paths.rea_home()
     question = (question or "").strip()
     if not question:
-        raise ReaError("A question is required so REA knows what to look for.")
+        raise ReaError("A question is required so RE LOCAL knows what to look for.")
     config = load_config(home)
     path = _resolve(target, config, require_allowlist)
     book, runner = _start(home, config, sandbox)
@@ -205,15 +205,15 @@ def investigate(
         runner.close()
     hits = sum(1 for e in book.items if e.kind in sa.TERM_KINDS)
     if not terms:
-        summary = "The question had no searchable words, so REA only recorded what the target is."
+        summary = "The question had no searchable words, so RE LOCAL only recorded what the target is."
     elif hits:
         summary = (
-            f"REA found {hits} lead(s) that mention {', '.join(terms)}. They show where those words appear in the "
+            f"RE LOCAL found {hits} lead(s) that mention {', '.join(terms)}. They show where those words appear in the "
             "target, not how the feature works. Read the cited locations to confirm the flow."
         )
     else:
         summary = (
-            f"REA found no direct hits for {', '.join(terms)}. Try words the app shows users (button labels, page "
+            f"RE LOCAL found no direct hits for {', '.join(terms)}. Try words the app shows users (button labels, page "
             "titles, error text) or route names."
         )
     return _create(

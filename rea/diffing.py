@@ -67,7 +67,7 @@ def diff_targets(
     limits: dict,
 ) -> dict:
     if old_kind == new_kind == "unknown":
-        raise ReaError("Neither target is a kind REA can diff yet.")
+        raise ReaError("Neither target is a kind RE LOCAL can diff yet.")
     if old_kind in sa.JS_KINDS | {"directory"} and new_kind in sa.JS_KINDS | {"directory"} and old.is_dir() and new.is_dir():
         return _diff_folders(book, old, new, old_kind in sa.JS_KINDS, limits)
     if old_kind in sa.BINARY_KINDS and new_kind == old_kind:

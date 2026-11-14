@@ -270,7 +270,7 @@ def collect_apk(book: EvidenceBook, path: Path, tools: dict[str, str | None], te
     book.limit("Dex bytecode is not decompiled in this version, so method-level behavior is not visible.")
     book.limit("AndroidManifest.xml is binary XML. Its security attributes are checked by `rea audit`.")
     if tools.get("jadx"):
-        book.limit("jadx is installed, but APK decompilation is not wired into REA yet.")
+        book.limit("jadx is installed, but APK decompilation is not wired into RE LOCAL yet.")
     else:
         book.limit("jadx is not installed. It will be needed once APK decompilation is added.")
     try:

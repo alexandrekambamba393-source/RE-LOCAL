@@ -1,4 +1,4 @@
-"""Configuration: detected tools, folders REA may investigate, and resource limits. Stored as REA_HOME/config.json."""
+"""Configuration: detected tools, folders RE LOCAL may investigate, and resource limits. Stored as REA_HOME/config.json."""
 
 from __future__ import annotations
 

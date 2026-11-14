@@ -1,4 +1,4 @@
-"""Where REA keeps its state. Everything lives under one folder on this machine (REA_HOME, default ~/.rea)."""
+"""Where RE LOCAL keeps its state. Everything lives under one folder on this machine (REA_HOME, default ~/.rea)."""
 
 from __future__ import annotations
 

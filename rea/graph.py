@@ -121,7 +121,7 @@ _PAGE = """<!doctype html>
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>REA evidence graph {id}</title>
+<title>RE LOCAL evidence graph {id}</title>
 <style>
   body {{ font-family: sans-serif; margin: 16px; color: #112; }}
   h1 {{ font-size: 18px; }}
