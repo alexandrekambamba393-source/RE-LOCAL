@@ -40,6 +40,16 @@ class Store:
         self.conn.row_factory = sqlite3.Row
         self.conn.execute("PRAGMA foreign_keys = ON")
         self.conn.executescript(SCHEMA)
+        self._migrate()
+
+    def _migrate(self) -> None:
+        """Add columns introduced after the first release. Older databases keep working."""
+        existing = {row[1] for row in self.conn.execute("PRAGMA table_info(investigations)")}
+        if "run_type" not in existing:
+            self.conn.execute("ALTER TABLE investigations ADD COLUMN run_type TEXT NOT NULL DEFAULT 'investigate'")
+        if "findings" not in existing:
+            self.conn.execute("ALTER TABLE investigations ADD COLUMN findings TEXT NOT NULL DEFAULT '[]'")
+        self.conn.commit()
 
     def __enter__(self) -> "Store":
         return self
@@ -54,7 +64,8 @@ class Store:
         with self.conn:
             self.conn.execute(
                 "INSERT INTO investigations (id, created_at, target, target_kind, target_sha256, question, "
-                "terms, evidence_count, limitations, report_path) VALUES (?,?,?,?,?,?,?,?,?,?)",
+                "terms, evidence_count, limitations, report_path, run_type, findings) "
+                "VALUES (?,?,?,?,?,?,?,?,?,?,?,?)",
                 (
                     rec.id,
                     rec.created_at,
@@ -66,6 +77,8 @@ class Store:
                     len(rec.evidence),
                     json.dumps(rec.limitations),
                     rec.report_path,
+                    rec.run_type,
+                    json.dumps(rec.findings),
                 ),
             )
             self.conn.executemany(
@@ -78,7 +91,7 @@ class Store:
 
     def recent(self, limit: int = 20) -> list[dict]:
         rows = self.conn.execute(
-            "SELECT id, created_at, target, target_kind, question, evidence_count FROM investigations "
+            "SELECT id, created_at, target, target_kind, run_type, question, evidence_count FROM investigations "
             "ORDER BY created_at DESC, id DESC LIMIT ?",
             (limit,),
         )
@@ -91,6 +104,7 @@ class Store:
         data = dict(row)
         data["terms"] = json.loads(data["terms"])
         data["limitations"] = json.loads(data["limitations"])
+        data["findings"] = json.loads(data["findings"])
         data["evidence"] = [
             dict(r)
             for r in self.conn.execute(

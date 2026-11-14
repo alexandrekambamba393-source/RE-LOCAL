@@ -1,4 +1,4 @@
-"""Route a target to its capabilities, write a cited report, and keep the history organized."""
+"""Pipelines for `investigate`, `audit`, and `diff`. Each writes a cited report and records it in history."""
 
 from __future__ import annotations
 
@@ -12,20 +12,27 @@ from dataclasses import asdict, dataclass, field
 from pathlib import Path
 
 from rea import paths
+from rea import sandbox as sandbox_mod
 from rea import static_analysis as sa
+from rea.audit import SEVERITIES, SEVERITY_RANK, audit_apk, audit_js, audit_native, meets_minimum
 from rea.config import load_config
+from rea.diffing import diff_targets
 from rea.errors import ReaError
 from rea.evidence import EvidenceBook
+from rea.graph import write_graph
+from rea.runner import Runner
 from rea.store import Store
 
-NEEDED_TOOLS = ("file", "strings", "nm", "objdump", "jadx")
+NEEDED_TOOLS = ("file", "strings", "nm", "objdump", "readelf", "rabin2", "rz-bin", "jadx")
 INV_ID_RE = re.compile(r"inv-\d{8}-\d{6}-[0-9a-f]{4}")
+RUN_LABELS = {"investigate": "Investigation", "audit": "Audit", "diff": "Diff"}
 
 
 @dataclass
 class InvestigationRecord:
     id: str
     created_at: str
+    run_type: str
     target: str
     target_kind: str
     target_sha256: str | None
@@ -33,14 +40,18 @@ class InvestigationRecord:
     terms: list[str]
     evidence: list[dict] = field(default_factory=list)
     limitations: list[str] = field(default_factory=list)
+    findings: list[dict] = field(default_factory=list)
     report_path: str = ""
     report: str = ""
+    summary: str = ""
+    graph_files: list[str] = field(default_factory=list)
 
-    def summary(self) -> dict:
+    def summary_dict(self) -> dict:
         data = asdict(self)
-        data.pop("report")
-        data.pop("evidence")
+        for key in ("report", "evidence", "findings", "summary"):
+            data.pop(key)
         data["evidence_count"] = len(self.evidence)
+        data["finding_count"] = len(self.findings)
         return data
 
 
@@ -54,7 +65,9 @@ def _check_id(inv_id: str) -> None:
         raise ReaError(f"'{inv_id}' is not a valid investigation id (expected inv-YYYYMMDD-HHMMSS-xxxx).")
 
 
-def _sha256(path: Path) -> str:
+def _sha256(path: Path) -> str | None:
+    if path.is_dir():
+        return None
     digest = hashlib.sha256()
     with path.open("rb") as fh:
         for chunk in iter(lambda: fh.read(1 << 20), b""):
@@ -71,106 +84,286 @@ def check_target(path: Path, config: dict, require_allowlist: bool) -> None:
         raise ReaError(f"{path} is outside the allowed folders: {allowed}")
 
 
-def investigate(
-    target: str,
-    question: str,
-    home: Path | None = None,
-    require_allowlist: bool = False,
-) -> InvestigationRecord:
-    home = home or paths.rea_home()
-    question = (question or "").strip()
-    if not question:
-        raise ReaError("A question is required so REA knows what to look for.")
-
+def _resolve(target: str, config: dict, require_allowlist: bool) -> Path:
     raw = Path(target).expanduser()
     if not raw.exists():
         raise ReaError(f"No file or folder at {target}")
     path = raw.resolve()
     if not (path.is_file() or path.is_dir()):
         raise ReaError("The target must be a regular file or a folder.")
-
-    config = load_config(home)
     check_target(path, config, require_allowlist)
+    return path
 
-    kind = sa.identify(path)
-    terms = sa.extract_terms(question)
-    tools = {name: shutil.which(name) for name in NEEDED_TOOLS}
-    limits = config["limits"]
+
+def _tools() -> dict[str, str | None]:
+    return {name: shutil.which(name) for name in NEEDED_TOOLS}
+
+
+def _start(home: Path, config: dict, sandbox_requested: bool) -> tuple[EvidenceBook, Runner]:
+    """Create the evidence book and runner. Records a limitation for the sandbox state when it was requested."""
     book = EvidenceBook()
+    sb = None
+    if sandbox_requested:
+        sb = sandbox_mod.detect()
+        if sb is not None:
+            book.limit(
+                f"Sandbox active ({sb.name}): external tools ran with a read-only filesystem, "
+                "no network, and a private scratch folder. The target was never executed."
+            )
+        else:
+            book.limit(
+                "Sandbox requested but unavailable (no working bubblewrap or firejail). External tools ran "
+                "unsandboxed. The target was still never executed."
+            )
+    limits = config["limits"]
+    runner = Runner(
+        timeout=limits["command_timeout_seconds"],
+        max_bytes=limits["max_output_bytes"],
+        sandbox=sb,
+        scratch_root=home / "sandbox-scratch",
+    )
+    return book, runner
 
-    if kind in sa.BINARY_KINDS:
-        sa.collect_binary(book, path, kind, tools, limits, terms)
-    elif kind in sa.JS_KINDS:
-        sa.collect_js_tree(book, path, kind, limits, terms)
-    elif kind == "android-apk":
-        sa.collect_apk(book, path, tools, terms)
-    else:
-        book.limit(f"No capability handles '{kind}' yet, so only identification ran.")
-    if not terms:
-        book.limit("The question had no searchable words, so no term searches ran.")
 
+def _create(
+    home: Path,
+    *,
+    run_type: str,
+    target: str,
+    target_kind: str,
+    target_sha256: str | None,
+    question: str,
+    terms: list[str],
+    book: EvidenceBook,
+    findings: list[dict],
+    summary: str,
+    export_graph: bool,
+) -> InvestigationRecord:
     inv_id = _new_id()
     inv_dir = paths.investigations_dir(home) / inv_id
     inv_dir.mkdir(parents=True, exist_ok=False)
     report_path = inv_dir / "report.md"
-
-    record = InvestigationRecord(
+    rec = InvestigationRecord(
         id=inv_id,
         created_at=dt.datetime.now(dt.timezone.utc).isoformat(timespec="seconds"),
-        target=str(path),
-        target_kind=kind,
-        target_sha256=None if path.is_dir() else _sha256(path),
+        run_type=run_type,
+        target=target,
+        target_kind=target_kind,
+        target_sha256=target_sha256,
         question=question,
         terms=terms,
         evidence=[e.to_dict() for e in book.items],
         limitations=list(book.limitations),
+        findings=findings,
         report_path=str(report_path),
+        summary=summary,
     )
-    record.report = render_report(record)
-    report_path.write_text(record.report, encoding="utf-8")
+    if export_graph:
+        mmd, html_path = write_graph(inv_dir, {"id": inv_id, "target": target, "evidence": rec.evidence, "findings": findings})
+        rec.graph_files = [mmd.name, html_path.name]
+    rec.report = render_report(rec)
+    report_path.write_text(rec.report, encoding="utf-8")
     (inv_dir / "evidence.json").write_text(
-        json.dumps({"id": inv_id, "evidence": record.evidence, "limitations": record.limitations}, indent=2),
+        json.dumps({"id": inv_id, "evidence": rec.evidence, "findings": findings, "limitations": rec.limitations}, indent=2),
         encoding="utf-8",
     )
     with Store(paths.db_file(home)) as store:
-        store.save(record)
-    return record
+        store.save(rec)
+    return rec
 
 
-def _summary_text(rec: InvestigationRecord) -> str:
-    if not rec.terms:
-        return "The question had no searchable words, so REA only recorded what the target is."
-    hits = [e for e in rec.evidence if e["kind"] in sa.TERM_KINDS]
-    joined = ", ".join(rec.terms)
-    if hits:
-        return (
-            f"REA found {len(hits)} lead(s) that mention {joined}. They show where those words appear in the "
+# ---------- investigate ----------
+
+def investigate(
+    target: str,
+    question: str,
+    home: Path | None = None,
+    require_allowlist: bool = False,
+    sandbox: bool = False,
+    export_graph: bool = False,
+) -> InvestigationRecord:
+    home = home or paths.rea_home()
+    question = (question or "").strip()
+    if not question:
+        raise ReaError("A question is required so REA knows what to look for.")
+    config = load_config(home)
+    path = _resolve(target, config, require_allowlist)
+    book, runner = _start(home, config, sandbox)
+    try:
+        kind = sa.identify(path)
+        terms = sa.extract_terms(question)
+        tools = _tools()
+        if kind in sa.BINARY_KINDS:
+            sa.collect_binary(book, path, kind, tools, runner, terms)
+        elif kind in sa.JS_KINDS:
+            sa.collect_js_tree(book, path, kind, config["limits"], terms)
+        elif kind == "android-apk":
+            sa.collect_apk(book, path, tools, terms)
+        else:
+            book.limit(f"No capability handles '{kind}' yet, so only identification ran.")
+        if not terms:
+            book.limit("The question had no searchable words, so no term searches ran.")
+    finally:
+        runner.close()
+    hits = sum(1 for e in book.items if e.kind in sa.TERM_KINDS)
+    if not terms:
+        summary = "The question had no searchable words, so REA only recorded what the target is."
+    elif hits:
+        summary = (
+            f"REA found {hits} lead(s) that mention {', '.join(terms)}. They show where those words appear in the "
             "target, not how the feature works. Read the cited locations to confirm the flow."
         )
-    return (
-        f"REA found no direct hits for {joined}. Try words the app shows users (button labels, page titles, "
-        "error text) or route names."
+    else:
+        summary = (
+            f"REA found no direct hits for {', '.join(terms)}. Try words the app shows users (button labels, page "
+            "titles, error text) or route names."
+        )
+    return _create(
+        home,
+        run_type="investigate",
+        target=str(path),
+        target_kind=kind,
+        target_sha256=_sha256(path),
+        question=question,
+        terms=terms,
+        book=book,
+        findings=[],
+        summary=summary,
+        export_graph=export_graph,
     )
 
 
+# ---------- audit ----------
+
+def audit(
+    target: str,
+    home: Path | None = None,
+    require_allowlist: bool = False,
+    sandbox: bool = False,
+    export_graph: bool = False,
+    min_severity: str = "INFO",
+) -> InvestigationRecord:
+    home = home or paths.rea_home()
+    min_severity = min_severity.upper()
+    if min_severity not in SEVERITY_RANK:
+        raise ReaError(f"min_severity must be one of {', '.join(SEVERITIES)}.")
+    config = load_config(home)
+    path = _resolve(target, config, require_allowlist)
+    book, runner = _start(home, config, sandbox)
+    try:
+        kind = sa.identify(path)
+        tools = _tools()
+        if kind in sa.BINARY_KINDS:
+            found = audit_native(book, path, kind, tools, runner)
+        elif kind in sa.JS_KINDS:
+            found = audit_js(book, path, config["limits"])
+        elif kind == "android-apk":
+            found = audit_apk(book, path)
+        else:
+            found = []
+            book.limit(f"No audit rules cover '{kind}' yet.")
+    finally:
+        runner.close()
+
+    shown = sorted((f for f in found if meets_minimum(f.severity, min_severity)), key=lambda f: SEVERITY_RANK[f.severity])
+    counts = {s: sum(1 for f in found if f.severity == s) for s in SEVERITIES}
+    if found:
+        counts_text = ", ".join(f"{counts[s]} {s}" for s in SEVERITIES if counts[s])
+        summary = (
+            f"{len(found)} finding(s): {counts_text}. Each one cites evidence. Confirm in code before acting; "
+            "these are leads, not proof of exploitability."
+        )
+    else:
+        summary = (
+            "No audit rule matched. This does not mean the target is safe. Only the checks listed in "
+            "Limitations were run."
+        )
+    return _create(
+        home,
+        run_type="audit",
+        target=str(path),
+        target_kind=kind,
+        target_sha256=_sha256(path),
+        question=f"Security audit (minimum severity {min_severity})",
+        terms=[],
+        book=book,
+        findings=[f.to_dict() for f in shown],
+        summary=summary,
+        export_graph=export_graph,
+    )
+
+
+# ---------- diff ----------
+
+def diff(
+    old: str,
+    new: str,
+    home: Path | None = None,
+    require_allowlist: bool = False,
+    sandbox: bool = False,
+    export_graph: bool = False,
+) -> InvestigationRecord:
+    home = home or paths.rea_home()
+    config = load_config(home)
+    old_path = _resolve(old, config, require_allowlist)
+    new_path = _resolve(new, config, require_allowlist)
+    old_kind, new_kind = sa.identify(old_path), sa.identify(new_path)
+    book, runner = _start(home, config, sandbox)
+    try:
+        changes = diff_targets(book, old_path, new_path, old_kind, new_kind, _tools(), runner, config["limits"])
+    finally:
+        runner.close()
+    nonzero = {k: v for k, v in changes.items() if isinstance(v, int) and v}
+    if changes.get("identical"):
+        summary = "The two versions are byte-identical (same SHA-256)."
+    elif nonzero:
+        summary = "Changes found: " + ", ".join(f"{k.replace('_', ' ')}={v}" for k, v in nonzero.items()) + "."
+    else:
+        summary = "No differences found in the compared surfaces."
+    return _create(
+        home,
+        run_type="diff",
+        target=f"{old_path} -> {new_path}",
+        target_kind=new_kind,
+        target_sha256=None,
+        question=f"Diff {old_path.name} -> {new_path.name}",
+        terms=[],
+        book=book,
+        findings=[],
+        summary=summary,
+        export_graph=export_graph,
+    )
+
+
+# ---------- rendering ----------
+
 def render_report(rec: InvestigationRecord) -> str:
     out = [
-        f"# Investigation {rec.id}",
+        f"# {RUN_LABELS.get(rec.run_type, 'Run')} {rec.id}",
         "",
         f"- **Target:** `{rec.target}`",
         f"- **Detected as:** {rec.target_kind}",
-        f"- **SHA-256:** {rec.target_sha256 or 'n/a (folder)'}",
+        f"- **SHA-256:** {rec.target_sha256 or 'n/a'}",
         f"- **Question:** {rec.question}",
-        f"- **Searched for:** {', '.join(rec.terms) or 'nothing'}",
-        f"- **Run at:** {rec.created_at}",
-        "",
-        "## Summary",
-        "",
-        _summary_text(rec),
-        "",
-        "## Evidence",
-        "",
     ]
+    if rec.terms:
+        out.append(f"- **Searched for:** {', '.join(rec.terms)}")
+    out += [f"- **Run at:** {rec.created_at}", "", "## Summary", "", rec.summary, ""]
+
+    if rec.run_type == "audit":
+        out += ["## Findings", ""]
+        if not rec.findings:
+            out.append("_No findings at or above the chosen minimum severity._")
+            out.append("")
+        for f in rec.findings:
+            refs = ", ".join(f["refs"]) or "no evidence ref"
+            out.append(f"- **{f['severity']}** `{f['rule_id']}` {f['title']}  ")
+            out.append(f"  Evidence: {refs} · Source: `{f['source']}`")
+            if f.get("detail"):
+                out.append(f"  {f['detail']}")
+            out.append("")
+
+    out += ["## Evidence", ""]
     if not rec.evidence:
         out.append("_No evidence was collected._")
     grouped: dict[str, list[dict]] = {}
@@ -184,22 +377,28 @@ def render_report(rec: InvestigationRecord) -> str:
             if ev["excerpt"]:
                 out.append(f"  > {ev['excerpt']}")
             out.append("")
+
     out += ["## Limitations", ""]
     if rec.limitations:
         out += [f"- {text}" for text in rec.limitations]
     else:
         out.append("_None recorded._")
+
+    if rec.graph_files:
+        out += ["", "## Graph", "", f"Open `{rec.graph_files[1]}` in a browser. Mermaid source: `{rec.graph_files[0]}`."]
+
     out += [
         "",
         "## Next steps",
         "",
         "- Open each cited source and read the code around the hit.",
-        "- Ask a follow-up with a more specific term, such as a button label, route, or error text.",
         "- Before rebuilding a feature, write down the inputs, outputs, and calls you confirmed in the code.",
         "",
     ]
     return "\n".join(out)
 
+
+# ---------- history ----------
 
 def list_investigations(home: Path | None = None, limit: int = 20) -> list[dict]:
     home = home or paths.rea_home()
@@ -223,6 +422,13 @@ def load_investigation(home: Path | None, inv_id: str) -> dict:
     report = Path(row["report_path"])
     row["report"] = report.read_text(encoding="utf-8") if report.is_file() else "(report file is missing)"
     return row
+
+
+def export_graph_for(home: Path | None, inv_id: str) -> tuple[Path, Path]:
+    """Regenerate graph.mmd and graph.html for a stored investigation."""
+    row = load_investigation(home, inv_id)
+    inv_dir = Path(row["report_path"]).parent
+    return write_graph(inv_dir, {"id": inv_id, "target": row["target"], "evidence": row["evidence"], "findings": row["findings"]})
 
 
 def delete_investigation(home: Path | None, inv_id: str) -> bool:

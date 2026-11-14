@@ -13,6 +13,7 @@ from pathlib import Path
 from typing import Callable, Iterable
 
 from rea import paths
+from rea import sandbox as sandbox_mod
 from rea.config import DEFAULT_LIMITS, build_config, load_config
 from rea.errors import ReaError
 from rea.store import Store
@@ -160,10 +161,12 @@ def doctor(home: Path | None = None) -> dict:
     if db.is_file():
         with Store(db) as store:
             count = store.count()
+    sb = sandbox_mod.detect()
     return {
         "home": str(home),
         "config_present": paths.config_file(home).is_file(),
         "allowed_roots": config.get("allowed_roots", []),
         "investigations": count,
+        "sandbox": sb.name if sb else None,
         "tools": [s.to_dict() for s in probe_tools()],
     }

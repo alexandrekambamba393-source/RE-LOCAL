@@ -10,13 +10,14 @@ from collections import Counter
 from pathlib import Path
 from typing import Iterator
 
+from rea import native_tools
 from rea.evidence import EvidenceBook
-from rea.subproc import run_tool
+from rea.runner import Runner
 
 BINARY_KINDS = {"elf-binary", "pe-binary", "macho-binary", "cafebabe-object"}
 JS_KINDS = {"javascript-app", "electron-app"}
 # Evidence kinds that count as a direct hit for the question's terms.
-TERM_KINDS = {"string-hit", "symbol-hit", "js-term-hit", "apk-entry-hit", "managed-runtime-marker"}
+TERM_KINDS = {"string-hit", "symbol-hit", "js-term-hit", "apk-entry-hit", "managed-runtime-marker", "bin-tool-hit"}
 
 MACHO_MAGICS = {b"\xfe\xed\xfa\xce", b"\xfe\xed\xfa\xcf", b"\xce\xfa\xed\xfe", b"\xcf\xfa\xed\xfe"}
 STOPWORDS = {
@@ -118,18 +119,16 @@ def collect_binary(
     path: Path,
     kind: str,
     tools: dict[str, str | None],
-    limits: dict,
+    runner: Runner,
     terms: list[str],
 ) -> None:
-    timeout = limits["command_timeout_seconds"]
-    max_bytes = limits["max_output_bytes"]
     target = str(path)  # absolute, so it can never be read as a command-line flag
 
     book.limit("Static only: the target was not executed. Each hit is a lead to verify in code, not proof of behavior.")
-    book.limit("No disassembly, decompilation, debugger, or Ghidra/IDA/Hopper bridge runs in this version.")
+    book.limit("No disassembly, decompilation, or debugger session runs in this version.")
 
     if tools.get("file"):
-        res = run_tool([tools["file"], "-b", target], timeout, max_bytes)
+        res = runner.run([tools["file"], "-b", target])
         if res.ok:
             book.add("file-id", target, "file-type", f"file(1) reports: {res.stdout.strip()[:200]}")
     else:
@@ -137,7 +136,7 @@ def collect_binary(
 
     lines: list[str] = []
     if tools.get("strings"):
-        res = run_tool([tools["strings"], "-n", "6", target], timeout, max_bytes)
+        res = runner.run([tools["strings"], "-n", "6", target])
         if res.ok:
             lines = res.stdout.splitlines()
             _term_hits(book, "strings", target, "string-hit", lines, terms, "Embedded text contains '{t}'")
@@ -161,7 +160,7 @@ def collect_binary(
         argv = [tools["nm"], "--defined-only", target]
         if kind == "elf-binary":
             argv.insert(1, "-D")
-        res = run_tool(argv, timeout, max_bytes)
+        res = runner.run(argv)
         names = [parts[-1] for parts in (ln.split() for ln in res.stdout.splitlines()) if parts]
         if names:
             _term_hits(book, "symbols", target, "symbol-hit", names, terms, "Symbol name contains '{t}'")
@@ -171,10 +170,24 @@ def collect_binary(
         book.limit("`nm` is not installed, so symbol names were not searched.")
 
     if tools.get("objdump"):
-        res = run_tool([tools["objdump"], "-h", target], timeout, max_bytes)
+        res = runner.run([tools["objdump"], "-h", target])
         sections = re.findall(r"^\s+\d+\s+(\S+)\s+[0-9a-fA-F]+", res.stdout, re.M)
         if sections:
             book.add("sections", target, "section-list", f"{len(sections)} sections; first ones: {', '.join(sections[:12])}")
+
+    # Optional radare2 / rizin enrichment: imports, exports, sections in JSON form.
+    bin_tool = next(((n, tools[n]) for n in ("rabin2", "rz-bin") if tools.get(n)), None)
+    if bin_tool:
+        extract = native_tools.run_bin_tool_extract(runner, bin_tool[0], bin_tool[1], target)
+        for key in ("imports", "exports"):
+            names = extract[key]
+            if names:
+                book.add("bin-tools", target, "bin-tool-list", f"{bin_tool[0]} lists {len(names)} {key}")
+                _term_hits(book, "bin-tools", target, "bin-tool-hit", names, terms, f"{key[:-1].capitalize()} name contains '{{t}}'")
+        if extract["sections"]:
+            book.add("bin-tools", target, "bin-tool-list", f"{bin_tool[0]} lists {len(extract['sections'])} sections")
+        for err in extract.get("errors", []):
+            book.limit(f"Optional tool issue: {err}")
 
 
 def _iter_sources(root: Path, max_bytes: int, stats: dict) -> Iterator[tuple[Path, str]]:
@@ -257,7 +270,7 @@ def collect_js_tree(book: EvidenceBook, root: Path, kind: str, limits: dict, ter
 def collect_apk(book: EvidenceBook, path: Path, tools: dict[str, str | None], terms: list[str]) -> None:
     target = str(path)
     book.limit("Dex bytecode is not decompiled in this version, so method-level behavior is not visible.")
-    book.limit("AndroidManifest.xml is binary XML and is not parsed yet.")
+    book.limit("AndroidManifest.xml is binary XML. Its security attributes are checked by `rea audit`.")
     if tools.get("jadx"):
         book.limit("jadx is installed, but APK decompilation is not wired into REA yet.")
     else:

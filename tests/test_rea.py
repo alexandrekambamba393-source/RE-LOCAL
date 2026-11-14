@@ -161,10 +161,10 @@ class McpTests(unittest.TestCase):
             self.assertEqual(init["result"]["serverInfo"]["name"], "rea")
             self.assertIsNone(mcp_server.handle({"jsonrpc": "2.0", "method": "notifications/initialized"}, home=home))
             tools = mcp_server.handle({"jsonrpc": "2.0", "id": 2, "method": "tools/list"}, home=home)["result"]["tools"]
-            self.assertEqual(
-                {t["name"] for t in tools},
-                {"rea_doctor", "rea_investigate", "rea_list_investigations", "rea_get_report"},
-            )
+            names = {t["name"] for t in tools}
+            # The original four tools must still exist; v0.2 adds rea_audit and rea_diff.
+            self.assertTrue({"rea_doctor", "rea_investigate", "rea_list_investigations", "rea_get_report"} <= names)
+            self.assertTrue({"rea_audit", "rea_diff"} <= names)
 
     def test_investigate_refused_until_a_folder_is_allowed(self):
         with tempfile.TemporaryDirectory() as d:
