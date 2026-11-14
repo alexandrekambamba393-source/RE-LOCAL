@@ -1,6 +1,6 @@
 """Guided setup: detect tools, show exactly what would change, and change nothing until you agree.
 
-Safe to rerun at any time. Existing settings are kept; each run writes a new log under REA_HOME/logs.
+Safe to rerun at any time. Existing settings are kept; each run writes a new log under RELOCAL_HOME/logs.
 """
 
 from __future__ import annotations
@@ -12,12 +12,12 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import Callable, Iterable
 
-from rea import paths
-from rea import sandbox as sandbox_mod
-from rea.config import DEFAULT_LIMITS, build_config, load_config
-from rea.errors import ReaError
-from rea.store import Store
-from rea.tools_probe import ToolStatus, probe_tools
+from relocal import paths
+from relocal import sandbox as sandbox_mod
+from relocal.config import DEFAULT_LIMITS, build_config, load_config
+from relocal.errors import RelocalError
+from relocal.store import Store
+from relocal.tools_probe import ToolStatus, probe_tools
 
 
 @dataclass(frozen=True)
@@ -32,7 +32,7 @@ def _normalize_new_roots(allow: Iterable[str]) -> list[str]:
     for raw in allow:
         folder = Path(raw).expanduser().resolve()
         if not folder.is_dir():
-            raise ReaError(f"Allowed folder does not exist or is not a folder: {raw}")
+            raise RelocalError(f"Allowed folder does not exist or is not a folder: {raw}")
         if str(folder) not in roots:
             roots.append(str(folder))
     return roots
@@ -74,11 +74,11 @@ def _apply(
     paths.config_file(home).write_text(json.dumps(config, indent=2) + "\n", encoding="utf-8")
     snippet = {
         "mcpServers": {
-            "rea": {
+            "relocal": {
                 "command": sys.executable,
-                "args": ["-m", "rea", "mcp"],
+                "args": ["-m", "relocal", "mcp"],
                 "cwd": str(paths.PROJECT_ROOT),
-                "env": {"REA_HOME": str(home)},
+                "env": {"RELOCAL_HOME": str(home)},
             }
         }
     }
@@ -105,7 +105,7 @@ def run_setup(
     input_fn: Callable[[str], str] = input,
     out: Callable[..., None] = print,
 ) -> int:
-    home = home or paths.rea_home()
+    home = home or paths.relocal_home()
     existing = load_config(home)
     kept = [r for r in existing.get("allowed_roots", []) if Path(r).is_dir()]
     roots = list(dict.fromkeys([*kept, *_normalize_new_roots(allow)]))
@@ -131,7 +131,7 @@ def run_setup(
         out(f"  [{step.action}] {step.target}  -- {step.note}")
     out(f"  Allowed folders: {', '.join(roots) if roots else 'none'}")
     if not roots:
-        out("  Note: agent (MCP) investigations stay off until you add one with `rea setup --allow <folder>`.")
+        out("  Note: agent (MCP) investigations stay off until you add one with `relocal setup --allow <folder>`.")
 
     if dry_run:
         out("")
@@ -154,7 +154,7 @@ def run_setup(
 
 
 def doctor(home: Path | None = None) -> dict:
-    home = home or paths.rea_home()
+    home = home or paths.relocal_home()
     config = load_config(home)
     count = 0
     db = paths.db_file(home)

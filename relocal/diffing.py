@@ -13,12 +13,12 @@ import zipfile
 from collections import Counter
 from pathlib import Path
 
-from rea import native_tools
-from rea import static_analysis as sa
-from rea.apk_format import SENSITIVE_PERMISSIONS, manifest_facts, parse_axml, parse_dex_strings
-from rea.errors import ReaError
-from rea.evidence import EvidenceBook
-from rea.runner import Runner
+from relocal import native_tools
+from relocal import static_analysis as sa
+from relocal.apk_format import SENSITIVE_PERMISSIONS, manifest_facts, parse_axml, parse_dex_strings
+from relocal.errors import RelocalError
+from relocal.evidence import EvidenceBook
+from relocal.runner import Runner
 
 MAX_LISTED = 200
 
@@ -67,14 +67,14 @@ def diff_targets(
     limits: dict,
 ) -> dict:
     if old_kind == new_kind == "unknown":
-        raise ReaError("Neither target is a kind RE LOCAL can diff yet.")
+        raise RelocalError("Neither target is a kind RE LOCAL can diff yet.")
     if old_kind in sa.JS_KINDS | {"directory"} and new_kind in sa.JS_KINDS | {"directory"} and old.is_dir() and new.is_dir():
         return _diff_folders(book, old, new, old_kind in sa.JS_KINDS, limits)
     if old_kind in sa.BINARY_KINDS and new_kind == old_kind:
         return _diff_binaries(book, old, new, old_kind, tools, runner)
     if old_kind == new_kind == "android-apk":
         return _diff_apks(book, old, new)
-    raise ReaError(f"Cannot diff a {old_kind} against a {new_kind}. Give two versions of the same kind of target.")
+    raise RelocalError(f"Cannot diff a {old_kind} against a {new_kind}. Give two versions of the same kind of target.")
 
 
 def _diff_folders(book: EvidenceBook, old: Path, new: Path, is_js: bool, limits: dict) -> dict:

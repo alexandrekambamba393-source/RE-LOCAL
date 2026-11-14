@@ -11,7 +11,7 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import Callable
 
-from rea.subproc import run_tool
+from relocal.subproc import run_tool
 
 
 @dataclass(frozen=True)

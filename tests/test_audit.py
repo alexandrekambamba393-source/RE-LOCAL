@@ -9,13 +9,13 @@ from pathlib import Path
 
 from helpers import FakeRunner, build_apk, quiet  # noqa: F401  (helpers sets sys.path)
 
-from rea import native_tools
-from rea.apk_format import parse_axml, parse_dex_strings
-from rea.audit import audit_native, meets_minimum, redact
-from rea.errors import ReaError
-from rea.evidence import EvidenceBook
-from rea.investigate import audit
-from rea.setup_flow import run_setup
+from relocal import native_tools
+from relocal.apk_format import parse_axml, parse_dex_strings
+from relocal.audit import audit_native, meets_minimum, redact
+from relocal.errors import RelocalError
+from relocal.evidence import EvidenceBook
+from relocal.investigate import audit
+from relocal.setup_flow import run_setup
 
 
 def _write(root: Path, name: str, text: str) -> None:
@@ -104,7 +104,7 @@ class JsAuditTests(unittest.TestCase):
         self.assertTrue(meets_minimum("HIGH", "HIGH") and not meets_minimum("MEDIUM", "HIGH"))
 
     def test_invalid_minimum_severity_is_refused(self):
-        with self.assertRaises(ReaError):
+        with self.assertRaises(RelocalError):
             audit(str(self.app), home=self.home, min_severity="URGENT")
 
     def test_clean_folder_says_no_rule_matched_and_is_not_called_safe(self):
@@ -248,8 +248,8 @@ class ApkAuditTests(unittest.TestCase):
 
 class RedactionInEvidenceTests(unittest.TestCase):
     def test_book_excerpts_never_carry_raw_secrets(self):
-        from rea.audit import audit_js
-        from rea.static_analysis import _iter_sources  # noqa: F401
+        from relocal.audit import audit_js
+        from relocal.static_analysis import _iter_sources  # noqa: F401
 
         with tempfile.TemporaryDirectory() as d:
             root = Path(d) / "app"
@@ -274,7 +274,7 @@ class ApkAuditApiTests(unittest.TestCase):
             allowed.mkdir()
             outside = make_risky_electron_app(Path(d) / "outside")
             run_setup(home, assume_yes=True, allow=[str(allowed)], out=quiet)
-            with self.assertRaises(ReaError):
+            with self.assertRaises(RelocalError):
                 audit(str(outside), home=home, require_allowlist=True)
 
 

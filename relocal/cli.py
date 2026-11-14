@@ -1,4 +1,4 @@
-"""Command-line interface. Run `rea --help` for the full list."""
+"""Command-line interface. Run `relocal --help` for the full list."""
 
 from __future__ import annotations
 
@@ -6,10 +6,10 @@ import argparse
 import json
 import sys
 
-from rea import paths
-from rea.audit import SEVERITIES
-from rea.errors import ReaError
-from rea.investigate import (
+from relocal import paths
+from relocal.audit import SEVERITIES
+from relocal.errors import RelocalError
+from relocal.investigate import (
     audit,
     delete_investigation,
     diff,
@@ -18,7 +18,7 @@ from rea.investigate import (
     list_investigations,
     load_investigation,
 )
-from rea.setup_flow import doctor, run_setup
+from relocal.setup_flow import doctor, run_setup
 
 
 def _common_flags(p: argparse.ArgumentParser) -> None:
@@ -27,7 +27,7 @@ def _common_flags(p: argparse.ArgumentParser) -> None:
 
 
 def build_parser() -> argparse.ArgumentParser:
-    p = argparse.ArgumentParser(prog="rea", description="Local reverse-engineering helper. Everything stays on this machine.")
+    p = argparse.ArgumentParser(prog="relocal", description="Local reverse-engineering helper. Everything stays on this machine.")
     sub = p.add_subparsers(dest="command", required=True)
 
     s = sub.add_parser("setup", help="Check tools and prepare local state. Shows a plan and asks first.")
@@ -75,7 +75,7 @@ def build_parser() -> argparse.ArgumentParser:
 
 def _print_doctor(info: dict) -> None:
     print(f"RE LOCAL home:        {info['home']}")
-    print(f"Config:          {'present' if info['config_present'] else 'missing (run `rea setup`)'}")
+    print(f"Config:          {'present' if info['config_present'] else 'missing (run `relocal setup`)'}")
     print(f"Runs in history: {info['investigations']}")
     roots = info["allowed_roots"]
     print(f"Allowed folders: {', '.join(roots) if roots else 'none (agent investigations are off)'}")
@@ -123,7 +123,7 @@ def _dispatch(args: argparse.Namespace, home) -> int:
     if args.command == "history":
         rows = list_investigations(home, args.limit)
         if not rows:
-            print("No runs yet. Try: rea audit <target>  or  rea investigate <target> -q '<question>'")
+            print("No runs yet. Try: relocal audit <target>  or  relocal investigate <target> -q '<question>'")
             return 0
         for r in rows:
             print(f"{r['id']}  {r['created_at']}  {r['run_type']:<11} {r['target_kind']:<14} {r['evidence_count']:>4} evidence  {r['question'][:50]}")
@@ -140,7 +140,7 @@ def _dispatch(args: argparse.Namespace, home) -> int:
     if args.command == "delete":
         if not args.yes:
             if not sys.stdin.isatty():
-                raise ReaError("Refusing to delete without --yes in a non-interactive shell.")
+                raise RelocalError("Refusing to delete without --yes in a non-interactive shell.")
             if input(f"Delete run {args.id}? [y/N] ").strip().lower() not in ("y", "yes"):
                 print("Kept.")
                 return 0
@@ -151,7 +151,7 @@ def _dispatch(args: argparse.Namespace, home) -> int:
     if args.command == "logs":
         logs = sorted(paths.logs_dir(home).glob("setup-*.log"))
         if not logs:
-            print("No setup logs yet. Run `rea setup`.")
+            print("No setup logs yet. Run `relocal setup`.")
             return 0
         if args.last:
             print(logs[-1].read_text(encoding="utf-8"))
@@ -161,20 +161,20 @@ def _dispatch(args: argparse.Namespace, home) -> int:
         return 0
 
     if args.command == "mcp":
-        from rea.mcp_server import serve
+        from relocal.mcp_server import serve
 
         return serve(home=home)
 
-    raise ReaError(f"Unknown command: {args.command}")
+    raise RelocalError(f"Unknown command: {args.command}")
 
 
 def main(argv: list[str] | None = None) -> int:
     args = build_parser().parse_args(argv)
-    home = paths.rea_home()
+    home = paths.relocal_home()
     try:
         return _dispatch(args, home)
-    except ReaError as exc:
-        print(f"rea: {exc}", file=sys.stderr)
+    except RelocalError as exc:
+        print(f"relocal: {exc}", file=sys.stderr)
         return 1
     except KeyboardInterrupt:
         print("\nCancelled.", file=sys.stderr)

@@ -9,7 +9,7 @@ from __future__ import annotations
 import json
 import re
 
-from rea.runner import Runner
+from relocal.runner import Runner
 
 # Unsafe C functions. Import-level finding only: a name in the import table means the program can call it.
 DANGEROUS_FUNCS = {

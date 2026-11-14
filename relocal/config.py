@@ -1,12 +1,12 @@
-"""Configuration: detected tools, folders RE LOCAL may investigate, and resource limits. Stored as REA_HOME/config.json."""
+"""Configuration: detected tools, folders RE LOCAL may investigate, and resource limits. Stored as RELOCAL_HOME/config.json."""
 
 from __future__ import annotations
 
 import json
 from pathlib import Path
 
-from rea import paths
-from rea.errors import ReaError
+from relocal import paths
+from relocal.errors import RelocalError
 
 CONFIG_VERSION = 1
 DEFAULT_LIMITS = {
@@ -23,9 +23,9 @@ def load_config(home: Path | None = None) -> dict:
     try:
         data = json.loads(path.read_text(encoding="utf-8"))
     except json.JSONDecodeError as exc:
-        raise ReaError(f"{path} is not valid JSON ({exc}). Fix it, or delete it and run `rea setup`.") from exc
+        raise RelocalError(f"{path} is not valid JSON ({exc}). Fix it, or delete it and run `relocal setup`.") from exc
     if not isinstance(data, dict):
-        raise ReaError(f"{path} must contain a JSON object. Delete it and run `rea setup`.")
+        raise RelocalError(f"{path} must contain a JSON object. Delete it and run `relocal setup`.")
     data["allowed_roots"] = [str(r) for r in data.get("allowed_roots", [])]
     data["limits"] = {**DEFAULT_LIMITS, **data.get("limits", {})}
     data.setdefault("tools", {})

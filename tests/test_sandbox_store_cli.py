@@ -14,14 +14,14 @@ from unittest import mock
 
 from helpers import FakeRunner, make_js_app, quiet
 
-from rea import mcp_server, native_tools
-from rea import sandbox as sandbox_mod
-from rea.cli import main
-from rea.investigate import investigate
-from rea.runner import Runner
-from rea.sandbox import Sandbox
-from rea.setup_flow import doctor, run_setup
-from rea.store import Store
+from relocal import mcp_server, native_tools
+from relocal import sandbox as sandbox_mod
+from relocal.cli import main
+from relocal.investigate import investigate
+from relocal.runner import Runner
+from relocal.sandbox import Sandbox
+from relocal.setup_flow import doctor, run_setup
+from relocal.store import Store
 
 
 class SandboxWrapTests(unittest.TestCase):
@@ -85,7 +85,7 @@ class SandboxInInvestigationTests(unittest.TestCase):
     def test_requested_but_unavailable_is_recorded_as_a_limitation(self):
         with tempfile.TemporaryDirectory() as d:
             app = make_js_app(Path(d) / "app")
-            with mock.patch("rea.investigate.sandbox_mod.detect", return_value=None):
+            with mock.patch("relocal.investigate.sandbox_mod.detect", return_value=None):
                 rec = investigate(str(app), "search", home=Path(d) / "home", sandbox=True)
             self.assertTrue(any("Sandbox requested but unavailable" in t for t in rec.limitations))
             self.assertIn("Sandbox requested but unavailable", rec.report)
@@ -94,7 +94,7 @@ class SandboxInInvestigationTests(unittest.TestCase):
         with tempfile.TemporaryDirectory() as d:
             app = make_js_app(Path(d) / "app")
             fake = Sandbox("bubblewrap", "/nonexistent/bwrap")
-            with mock.patch("rea.investigate.sandbox_mod.detect", return_value=fake):
+            with mock.patch("relocal.investigate.sandbox_mod.detect", return_value=fake):
                 rec = investigate(str(app), "search", home=Path(d) / "home", sandbox=True)
             self.assertTrue(any(t.startswith("Sandbox active (bubblewrap)") for t in rec.limitations))
 
@@ -131,7 +131,7 @@ class RadareRizinTests(unittest.TestCase):
         self.assertTrue(out["errors"])
 
     def test_analyze_headless_is_detected_but_not_run(self):
-        from rea.tools_probe import SPECS
+        from relocal.tools_probe import SPECS
 
         spec = next(s for s in SPECS if s.name == "analyzeHeadless")
         self.assertFalse(spec.implemented)
@@ -178,7 +178,7 @@ class McpAuditDiffTests(unittest.TestCase):
     def test_audit_is_refused_until_a_folder_is_allowed(self):
         with tempfile.TemporaryDirectory() as d:
             app = make_js_app(Path(d) / "app")
-            result = self._call(Path(d) / "home", "rea_audit", {"target": str(app)})
+            result = self._call(Path(d) / "home", "relocal_audit", {"target": str(app)})
             self.assertTrue(result["isError"])
 
     def test_audit_and_diff_work_inside_an_allowed_folder(self):
@@ -188,10 +188,10 @@ class McpAuditDiffTests(unittest.TestCase):
             v1 = make_js_app(work / "v1")
             v2 = make_js_app(work / "v2")
             run_setup(home, assume_yes=True, allow=[str(work)], out=quiet)
-            audit_result = self._call(home, "rea_audit", {"target": str(v1), "min_severity": "HIGH", "export_graph": True})
+            audit_result = self._call(home, "relocal_audit", {"target": str(v1), "min_severity": "HIGH", "export_graph": True})
             self.assertFalse(audit_result["isError"])
             self.assertIn("Audit inv-", audit_result["content"][0]["text"])
-            diff_result = self._call(home, "rea_diff", {"old": str(v1), "new": str(v2)})
+            diff_result = self._call(home, "relocal_diff", {"old": str(v1), "new": str(v2)})
             self.assertFalse(diff_result["isError"])
             self.assertIn("Diff inv-", diff_result["content"][0]["text"])
 
@@ -201,14 +201,14 @@ class McpAuditDiffTests(unittest.TestCase):
             work = Path(d) / "work"
             app = make_js_app(work / "app")
             run_setup(home, assume_yes=True, allow=[str(work)], out=quiet)
-            result = self._call(home, "rea_audit", {"target": str(app), "min_severity": "URGENT"})
+            result = self._call(home, "relocal_audit", {"target": str(app), "min_severity": "URGENT"})
             self.assertTrue(result["isError"])
 
     def test_new_tools_declare_their_optional_flags(self):
         by_name = {t["name"]: t for t in mcp_server.TOOLS}
-        self.assertIn("export_graph", by_name["rea_audit"]["inputSchema"]["properties"])
-        self.assertIn("sandbox", by_name["rea_diff"]["inputSchema"]["properties"])
-        self.assertIn("sandbox", by_name["rea_investigate"]["inputSchema"]["properties"])
+        self.assertIn("export_graph", by_name["relocal_audit"]["inputSchema"]["properties"])
+        self.assertIn("sandbox", by_name["relocal_diff"]["inputSchema"]["properties"])
+        self.assertIn("sandbox", by_name["relocal_investigate"]["inputSchema"]["properties"])
 
 
 class CliTests(unittest.TestCase):
@@ -216,7 +216,7 @@ class CliTests(unittest.TestCase):
         with tempfile.TemporaryDirectory() as d:
             app = make_js_app(Path(d) / "app")
             out = io.StringIO()
-            with mock.patch.dict(os.environ, {"REA_HOME": str(Path(d) / "home")}), redirect_stdout(out):
+            with mock.patch.dict(os.environ, {"RELOCAL_HOME": str(Path(d) / "home")}), redirect_stdout(out):
                 code = main(["audit", str(app), "--json"])
             self.assertEqual(code, 0)
             data = json.loads(out.getvalue())
@@ -228,7 +228,7 @@ class CliTests(unittest.TestCase):
             a = make_js_app(Path(d) / "a")
             b = make_js_app(Path(d) / "b")
             out = io.StringIO()
-            with mock.patch.dict(os.environ, {"REA_HOME": str(Path(d) / "home")}), redirect_stdout(out):
+            with mock.patch.dict(os.environ, {"RELOCAL_HOME": str(Path(d) / "home")}), redirect_stdout(out):
                 self.assertEqual(main(["diff", str(a), str(b)]), 0)
             self.assertIn("# Diff", out.getvalue())
 
@@ -236,7 +236,7 @@ class CliTests(unittest.TestCase):
         with tempfile.TemporaryDirectory() as d:
             home = Path(d) / "home"
             app = make_js_app(Path(d) / "app")
-            with mock.patch.dict(os.environ, {"REA_HOME": str(home)}), redirect_stdout(io.StringIO()):
+            with mock.patch.dict(os.environ, {"RELOCAL_HOME": str(home)}), redirect_stdout(io.StringIO()):
                 main(["investigate", str(app), "-q", "search"])
                 rec_id = next((home / "investigations").iterdir()).name
                 out = io.StringIO()
@@ -248,7 +248,7 @@ class CliTests(unittest.TestCase):
     def test_unknown_run_id_is_a_clean_error(self):
         with tempfile.TemporaryDirectory() as d:
             err = io.StringIO()
-            with mock.patch.dict(os.environ, {"REA_HOME": str(Path(d) / "home")}), redirect_stderr(err):
+            with mock.patch.dict(os.environ, {"RELOCAL_HOME": str(Path(d) / "home")}), redirect_stderr(err):
                 code = main(["show", "inv-20261114-000000-ffff"])
             self.assertEqual(code, 1)
             self.assertIn("No investigation named", err.getvalue())

@@ -1,6 +1,6 @@
 """Shared fixtures: synthetic APK/dex/AXML builders, fake tool runner, and small project helpers.
 
-The builders write the real binary layouts that rea.apk_format parses, so APK tests need no Android tools.
+The builders write the real binary layouts that relocal.apk_format parses, so APK tests need no Android tools.
 """
 
 from __future__ import annotations
@@ -15,7 +15,7 @@ ROOT = Path(__file__).resolve().parents[1]
 if str(ROOT) not in sys.path:
     sys.path.insert(0, str(ROOT))
 
-from rea.subproc import CommandResult  # noqa: E402
+from relocal.subproc import CommandResult  # noqa: E402
 
 
 def quiet(*_args, **_kwargs) -> None:
@@ -129,7 +129,7 @@ def build_apk(
 
 
 class FakeRunner:
-    """Stands in for rea.runner.Runner. Answers from a dict keyed by (tool basename, first flag)."""
+    """Stands in for relocal.runner.Runner. Answers from a dict keyed by (tool basename, first flag)."""
 
     def __init__(self, responses: dict[tuple[str, str], str]) -> None:
         self.responses = responses

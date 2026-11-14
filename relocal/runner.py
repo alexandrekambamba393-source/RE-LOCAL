@@ -6,8 +6,8 @@ import shutil
 import tempfile
 from pathlib import Path
 
-from rea.sandbox import Sandbox
-from rea.subproc import CommandResult, run_tool
+from relocal.sandbox import Sandbox
+from relocal.subproc import CommandResult, run_tool
 
 
 class Runner:
@@ -31,7 +31,7 @@ class Runner:
             root = self.scratch_root
             if root is not None:
                 root.mkdir(parents=True, exist_ok=True)
-            self._scratch = Path(tempfile.mkdtemp(prefix="rea-sbx-", dir=root))
+            self._scratch = Path(tempfile.mkdtemp(prefix="relocal-sbx-", dir=root))
         return self._scratch
 
     def run(self, argv: list[str]) -> CommandResult:

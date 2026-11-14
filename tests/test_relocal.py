@@ -12,11 +12,11 @@ from pathlib import Path
 ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT))
 
-from rea import mcp_server  # noqa: E402
-from rea import static_analysis as sa  # noqa: E402
-from rea.errors import ReaError  # noqa: E402
-from rea.investigate import delete_investigation, investigate, list_investigations, load_investigation  # noqa: E402
-from rea.setup_flow import run_setup  # noqa: E402
+from relocal import mcp_server  # noqa: E402
+from relocal import static_analysis as sa  # noqa: E402
+from relocal.errors import RelocalError  # noqa: E402
+from relocal.investigate import delete_investigation, investigate, list_investigations, load_investigation  # noqa: E402
+from relocal.setup_flow import run_setup  # noqa: E402
 
 
 def quiet(*_args, **_kwargs) -> None:
@@ -104,7 +104,7 @@ class HistoryTests(unittest.TestCase):
 
     def test_rejects_path_like_ids(self):
         with tempfile.TemporaryDirectory() as d:
-            with self.assertRaises(ReaError):
+            with self.assertRaises(RelocalError):
                 delete_investigation(Path(d, "home"), "../../etc")
 
 
@@ -145,7 +145,7 @@ class AllowlistTests(unittest.TestCase):
             inside = make_js_app(allowed / "app")
             home = Path(d, "home")
             run_setup(home, assume_yes=True, allow=[str(allowed)], out=quiet)
-            with self.assertRaises(ReaError):
+            with self.assertRaises(RelocalError):
                 investigate(str(outside), "search", home=home, require_allowlist=True)
             self.assertTrue(investigate(str(inside), "search", home=home, require_allowlist=True).id)
 
@@ -158,26 +158,26 @@ class McpTests(unittest.TestCase):
                 {"jsonrpc": "2.0", "id": 1, "method": "initialize", "params": {"protocolVersion": "2024-11-05"}},
                 home=home,
             )
-            self.assertEqual(init["result"]["serverInfo"]["name"], "rea")
+            self.assertEqual(init["result"]["serverInfo"]["name"], "relocal")
             self.assertIsNone(mcp_server.handle({"jsonrpc": "2.0", "method": "notifications/initialized"}, home=home))
             tools = mcp_server.handle({"jsonrpc": "2.0", "id": 2, "method": "tools/list"}, home=home)["result"]["tools"]
             names = {t["name"] for t in tools}
-            self.assertTrue({"rea_doctor", "rea_investigate", "rea_list_investigations", "rea_get_report"} <= names)
-            self.assertTrue({"rea_audit", "rea_diff"} <= names)
+            self.assertTrue({"relocal_doctor", "relocal_investigate", "relocal_list_investigations", "relocal_get_report"} <= names)
+            self.assertTrue({"relocal_audit", "relocal_diff"} <= names)
 
     def test_investigate_refused_until_a_folder_is_allowed(self):
         with tempfile.TemporaryDirectory() as d:
             app = make_js_app(Path(d, "app"))
-            result = call(Path(d, "home"), "rea_investigate", {"target": str(app), "question": "search"})
+            result = call(Path(d, "home"), "relocal_investigate", {"target": str(app), "question": "search"})
             self.assertTrue(result["isError"])
-            self.assertIn("rea setup --allow", result["content"][0]["text"])
+            self.assertIn("relocal setup --allow", result["content"][0]["text"])
 
     def test_investigate_works_inside_allowed_folder(self):
         with tempfile.TemporaryDirectory() as d:
             home = Path(d, "home")
             app = make_js_app(Path(d, "work") / "app")
             run_setup(home, assume_yes=True, allow=[str(Path(d, "work"))], out=quiet)
-            result = call(home, "rea_investigate", {"target": str(app), "question": "search"})
+            result = call(home, "relocal_investigate", {"target": str(app), "question": "search"})
             self.assertFalse(result["isError"])
             self.assertIn("Investigation inv-", result["content"][0]["text"])
 

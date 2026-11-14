@@ -1,2 +1,2 @@
-class ReaError(Exception):
+class RelocalError(Exception):
     """A user-facing problem: bad input, missing setup, or a blocked request."""

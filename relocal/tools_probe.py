@@ -5,7 +5,7 @@ from __future__ import annotations
 import shutil
 from dataclasses import asdict, dataclass
 
-from rea.subproc import run_tool
+from relocal.subproc import run_tool
 
 
 @dataclass(frozen=True)

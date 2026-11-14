@@ -10,9 +10,9 @@ from collections import Counter
 from pathlib import Path
 from typing import Iterator
 
-from rea import native_tools
-from rea.evidence import EvidenceBook
-from rea.runner import Runner
+from relocal import native_tools
+from relocal.evidence import EvidenceBook
+from relocal.runner import Runner
 
 BINARY_KINDS = {"elf-binary", "pe-binary", "macho-binary", "cafebabe-object"}
 JS_KINDS = {"javascript-app", "electron-app"}
@@ -268,7 +268,7 @@ def collect_js_tree(book: EvidenceBook, root: Path, kind: str, limits: dict, ter
 def collect_apk(book: EvidenceBook, path: Path, tools: dict[str, str | None], terms: list[str]) -> None:
     target = str(path)
     book.limit("Dex bytecode is not decompiled in this version, so method-level behavior is not visible.")
-    book.limit("AndroidManifest.xml is binary XML. Its security attributes are checked by `rea audit`.")
+    book.limit("AndroidManifest.xml is binary XML. Its security attributes are checked by `relocal audit`.")
     if tools.get("jadx"):
         book.limit("jadx is installed, but APK decompilation is not wired into RE LOCAL yet.")
     else:

@@ -11,17 +11,17 @@ import shutil
 from dataclasses import asdict, dataclass, field
 from pathlib import Path
 
-from rea import paths
-from rea import sandbox as sandbox_mod
-from rea import static_analysis as sa
-from rea.audit import SEVERITIES, SEVERITY_RANK, audit_apk, audit_js, audit_native, meets_minimum
-from rea.config import load_config
-from rea.diffing import diff_targets
-from rea.errors import ReaError
-from rea.evidence import EvidenceBook
-from rea.graph import write_graph
-from rea.runner import Runner
-from rea.store import Store
+from relocal import paths
+from relocal import sandbox as sandbox_mod
+from relocal import static_analysis as sa
+from relocal.audit import SEVERITIES, SEVERITY_RANK, audit_apk, audit_js, audit_native, meets_minimum
+from relocal.config import load_config
+from relocal.diffing import diff_targets
+from relocal.errors import RelocalError
+from relocal.evidence import EvidenceBook
+from relocal.graph import write_graph
+from relocal.runner import Runner
+from relocal.store import Store
 
 NEEDED_TOOLS = ("file", "strings", "nm", "objdump", "readelf", "rabin2", "rz-bin", "jadx")
 INV_ID_RE = re.compile(r"inv-\d{8}-\d{6}-[0-9a-f]{4}")
@@ -62,7 +62,7 @@ def _new_id() -> str:
 
 def _check_id(inv_id: str) -> None:
     if not INV_ID_RE.fullmatch(inv_id or ""):
-        raise ReaError(f"'{inv_id}' is not a valid investigation id (expected inv-YYYYMMDD-HHMMSS-xxxx).")
+        raise RelocalError(f"'{inv_id}' is not a valid investigation id (expected inv-YYYYMMDD-HHMMSS-xxxx).")
 
 
 def _sha256(path: Path) -> str | None:
@@ -78,19 +78,19 @@ def _sha256(path: Path) -> str | None:
 def check_target(path: Path, config: dict, require_allowlist: bool) -> None:
     roots = [Path(r).expanduser().resolve() for r in config.get("allowed_roots", [])]
     if require_allowlist and not roots:
-        raise ReaError("No folders are allowed yet. Run `rea setup --allow <folder>` first.")
+        raise RelocalError("No folders are allowed yet. Run `relocal setup --allow <folder>` first.")
     if roots and not any(path == root or root in path.parents for root in roots):
         allowed = ", ".join(str(r) for r in roots)
-        raise ReaError(f"{path} is outside the allowed folders: {allowed}")
+        raise RelocalError(f"{path} is outside the allowed folders: {allowed}")
 
 
 def _resolve(target: str, config: dict, require_allowlist: bool) -> Path:
     raw = Path(target).expanduser()
     if not raw.exists():
-        raise ReaError(f"No file or folder at {target}")
+        raise RelocalError(f"No file or folder at {target}")
     path = raw.resolve()
     if not (path.is_file() or path.is_dir()):
-        raise ReaError("The target must be a regular file or a folder.")
+        raise RelocalError("The target must be a regular file or a folder.")
     check_target(path, config, require_allowlist)
     return path
 
@@ -180,10 +180,10 @@ def investigate(
     sandbox: bool = False,
     export_graph: bool = False,
 ) -> InvestigationRecord:
-    home = home or paths.rea_home()
+    home = home or paths.relocal_home()
     question = (question or "").strip()
     if not question:
-        raise ReaError("A question is required so RE LOCAL knows what to look for.")
+        raise RelocalError("A question is required so RE LOCAL knows what to look for.")
     config = load_config(home)
     path = _resolve(target, config, require_allowlist)
     book, runner = _start(home, config, sandbox)
@@ -239,10 +239,10 @@ def audit(
     export_graph: bool = False,
     min_severity: str = "INFO",
 ) -> InvestigationRecord:
-    home = home or paths.rea_home()
+    home = home or paths.relocal_home()
     min_severity = min_severity.upper()
     if min_severity not in SEVERITY_RANK:
-        raise ReaError(f"min_severity must be one of {', '.join(SEVERITIES)}.")
+        raise RelocalError(f"min_severity must be one of {', '.join(SEVERITIES)}.")
     config = load_config(home)
     path = _resolve(target, config, require_allowlist)
     book, runner = _start(home, config, sandbox)
@@ -297,7 +297,7 @@ def diff(
     sandbox: bool = False,
     export_graph: bool = False,
 ) -> InvestigationRecord:
-    home = home or paths.rea_home()
+    home = home or paths.relocal_home()
     config = load_config(home)
     old_path = _resolve(old, config, require_allowlist)
     new_path = _resolve(new, config, require_allowlist)
@@ -391,7 +391,7 @@ def render_report(rec: InvestigationRecord) -> str:
 
 
 def list_investigations(home: Path | None = None, limit: int = 20) -> list[dict]:
-    home = home or paths.rea_home()
+    home = home or paths.relocal_home()
     db = paths.db_file(home)
     if not db.is_file():
         return []
@@ -400,7 +400,7 @@ def list_investigations(home: Path | None = None, limit: int = 20) -> list[dict]
 
 
 def load_investigation(home: Path | None, inv_id: str) -> dict:
-    home = home or paths.rea_home()
+    home = home or paths.relocal_home()
     _check_id(inv_id)
     db = paths.db_file(home)
     row = None
@@ -408,7 +408,7 @@ def load_investigation(home: Path | None, inv_id: str) -> dict:
         with Store(db) as store:
             row = store.get(inv_id)
     if row is None:
-        raise ReaError(f"No investigation named {inv_id}.")
+        raise RelocalError(f"No investigation named {inv_id}.")
     report = Path(row["report_path"])
     row["report"] = report.read_text(encoding="utf-8") if report.is_file() else "(report file is missing)"
     return row
@@ -422,7 +422,7 @@ def export_graph_for(home: Path | None, inv_id: str) -> tuple[Path, Path]:
 
 
 def delete_investigation(home: Path | None, inv_id: str) -> bool:
-    home = home or paths.rea_home()
+    home = home or paths.relocal_home()
     _check_id(inv_id)
     base = paths.investigations_dir(home).resolve()
     inv_dir = (base / inv_id).resolve()

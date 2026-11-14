@@ -9,9 +9,9 @@ from pathlib import Path
 
 from helpers import build_apk, make_js_app
 
-from rea.errors import ReaError
-from rea.graph import build_html, build_mermaid, write_graph
-from rea.investigate import diff, export_graph_for, investigate, load_investigation
+from relocal.errors import RelocalError
+from relocal.graph import build_html, build_mermaid, write_graph
+from relocal.investigate import diff, export_graph_for, investigate, load_investigation
 
 
 def _write(root: Path, name: str, text: str) -> None:
@@ -73,7 +73,7 @@ class FolderDiffTests(unittest.TestCase):
 
     def test_mixed_kinds_are_refused(self):
         apk = build_apk(self.tmp / "a.apk", [("application", [])], ["x"])
-        with self.assertRaises(ReaError):
+        with self.assertRaises(RelocalError):
             diff(str(self.v1), str(apk), home=self.home)
 
 

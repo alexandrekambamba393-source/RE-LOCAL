@@ -12,11 +12,11 @@ from dataclasses import asdict, dataclass, field
 from pathlib import Path
 from typing import Callable
 
-from rea import native_tools
-from rea.apk_format import SENSITIVE_PERMISSIONS, cleartext_urls, manifest_facts, parse_axml, parse_dex_strings
-from rea.evidence import EvidenceBook
-from rea.runner import Runner
-from rea.static_analysis import _iter_sources, _window
+from relocal import native_tools
+from relocal.apk_format import SENSITIVE_PERMISSIONS, cleartext_urls, manifest_facts, parse_axml, parse_dex_strings
+from relocal.evidence import EvidenceBook
+from relocal.runner import Runner
+from relocal.static_analysis import _iter_sources, _window
 
 SEVERITIES = ("CRITICAL", "HIGH", "MEDIUM", "INFO")
 SEVERITY_RANK = {s: i for i, s in enumerate(SEVERITIES)}
