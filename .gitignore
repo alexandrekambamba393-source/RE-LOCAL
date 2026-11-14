@@ -1,0 +1,16 @@
+# Python
+__pycache__/
+*.py[cod]
+*.egg-info/
+build/
+dist/
+
+# Local environments
+.venv/
+venv/
+
+# REA runtime state (never commit investigation data or history)
+.rea/
+investigations/
+history.sqlite3
+logs/
